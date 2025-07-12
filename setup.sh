@@ -2,6 +2,9 @@
 
 BACKUP_SCRIPT="/root/xui-backuper/backup.sh"
 XUIB_SCRIPT="/usr/local/bin/xuib"
+RCLONE_CONFIG="/root/.config/rclone/rclone.conf"
+BACKUP_DIR="/root/xui_backups"
+BACKUP_BASE_DIR="/root/xui-backuper"
 
 echo "⏳ Installing required tools..."
 apt update -y && apt install -y rclone cron
@@ -20,7 +23,7 @@ CONFIG_DIR="/root/.config/rclone"
 mkdir -p "$CONFIG_DIR"
 
 echo "📁 Creating rclone config..."
-cat > "$CONFIG_DIR/rclone.conf" <<EOF
+cat > "$RCLONE_CONFIG" <<EOF
 [arvan]
 type = s3
 provider = Other
@@ -33,8 +36,8 @@ echo "✅ rclone config created."
 echo ""
 
 # Create backup script and folders
-mkdir -p /root/xui-backuper
-mkdir -p /root/xui_backups
+mkdir -p "$BACKUP_BASE_DIR"
+mkdir -p "$BACKUP_DIR"
 
 echo "🛠️ Creating backup script..."
 cat > "$BACKUP_SCRIPT" <<'EOF'
@@ -79,41 +82,81 @@ echo "🕐 Default cron job (every 1 hour) added."
 # Create the xuib interactive panel script
 echo "🛠️ Creating xuib panel script..."
 
-cat > "$XUIB_SCRIPT" <<'EOF'
+cat > "$XUIB_SCRIPT" <<EOF
 #!/bin/bash
 
-BACKUP_SCRIPT="/root/xui-backuper/backup.sh"
+BACKUP_SCRIPT="$BACKUP_SCRIPT"
+RCLONE_CONFIG="$RCLONE_CONFIG"
+BACKUP_DIR="$BACKUP_DIR"
+BACKUP_BASE_DIR="$BACKUP_BASE_DIR"
+
+show_banner() {
+cat <<'EOB'
+                  _________ ______  
+|\     /||\     /|\__   __/(  ___ \ 
+( \   / )| )   ( |   ) (   | (   ) )
+ \ (_) / | |   | |   | |   | (__/ / 
+  ) _ (  | |   | |   | |   |  __ (  
+ / ( ) \ | |   | |   | |   | (  \ \ 
+( /   \ )| (___) |___) (___| )___) )
+|/     \|(_______)\_______/|/ \___/ 
+                                      
+      C O L L E C T O R S E C
+
+=== XUI Backup Panel ===
+EOB
+}
 
 show_menu() {
   clear
-  echo "=== XUI Backup Panel ==="
+  show_banner
   echo "0) Send backup now"
   echo "1) Send backup every 1 hour (default)"
   echo "2) Send backup every 3 hours"
   echo "3) Send backup every 6 hours"
   echo "4) Send backup every 12 hours"
-  echo "5) Exit"
-  echo -n "Choose an option [0-5]: "
+  echo "5) Delete all backup scripts and settings"
+  echo "6) Exit"
+  echo -n "Choose an option [0-6]: "
 }
 
 set_cron_job() {
-  local interval=$1
-  crontab -l 2>/dev/null | grep -v "$BACKUP_SCRIPT" | crontab -
-  if [ "$interval" != "none" ]; then
-    echo "Setting backup interval to every $interval hour(s)..."
-    (crontab -l 2>/dev/null; echo "0 */$interval * * * $BACKUP_SCRIPT") | crontab -
+  local interval=\$1
+  crontab -l 2>/dev/null | grep -v "\$BACKUP_SCRIPT" | crontab -
+  if [ "\$interval" != "none" ]; then
+    echo "Setting backup interval to every \$interval hour(s)..."
+    (crontab -l 2>/dev/null; echo "0 */\$interval * * * \$BACKUP_SCRIPT") | crontab -
   else
     echo "Removing backup cron jobs..."
   fi
 }
 
+delete_all() {
+  echo "Removing cron jobs..."
+  crontab -l 2>/dev/null | grep -v "\$BACKUP_SCRIPT" | crontab -
+
+  echo "Deleting backup scripts and directories..."
+  rm -rf "\$BACKUP_BASE_DIR"
+  rm -rf "\$BACKUP_DIR"
+
+  echo "Deleting rclone config..."
+  rm -f "\$RCLONE_CONFIG"
+
+  echo "Deleting panel script..."
+  rm -f "$XUIB_SCRIPT"
+
+  echo "All backup scripts and settings removed."
+  echo "Exiting..."
+  exit 0
+}
+
 while true; do
   show_menu
   read -r choice
-  case $choice in
+  case \$choice in
     0)
       echo "Sending backup now..."
-      if $BACKUP_SCRIPT; then
+      if \$BACKUP_SCRIPT; then
         echo "✅ Backup sent successfully."
       else
         echo "❌ Backup failed!"
@@ -141,6 +184,16 @@ while true; do
       read -p "Press Enter to continue..."
       ;;
     5)
+      echo "Deleting all backup scripts and settings..."
+      read -p "Are you sure? This action is irreversible! (y/N): " confirm
+      if [[ "\$confirm" =~ ^[Yy]$ ]]; then
+        delete_all
+      else
+        echo "Cancelled."
+        read -p "Press Enter to continue..."
+      fi
+      ;;
+    6)
       echo "Exiting..."
       exit 0
       ;;
