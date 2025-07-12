@@ -27,7 +27,6 @@ provider = Other
 access_key_id = $ACCESS_KEY
 secret_access_key = $SECRET_KEY
 endpoint = $ENDPOINT
-region = auto
 EOF
 
 echo "✅ rclone config created."
