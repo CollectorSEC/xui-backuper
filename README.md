@@ -24,4 +24,5 @@
 در ترمینال سرور دستور زیر را وارد کنید:
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/CollectorSEC/xui-backuper/main/install.sh)
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/CollectorSEC/xui-backuper/main/install.sh)"
+
